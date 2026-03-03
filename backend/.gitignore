@@ -1,0 +1,30 @@
+# Virtual Environment
+venv/
+env/
+.env
+
+# Uploaded documents
+uploads/
+
+# ChromaDB vector database
+chroma_db/
+
+# Document metadata
+doc_meta.json
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
