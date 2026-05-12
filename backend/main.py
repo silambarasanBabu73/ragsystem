@@ -152,3 +152,45 @@ async def query(req: QueryRequest):
 @app.get("/models")
 def get_models():
     return {"models": rag.list_models()}
+
+@app.get("/visualize/{doc_id}")
+def visualize_document(doc_id: str):
+    """Return all chunks + embeddings for a document (for visualization)."""
+    meta = load_meta()
+    doc = next((d for d in meta if d["id"] == doc_id), None)
+    if not doc:
+        raise HTTPException(404, "Document not found")
+
+    col_name = vector_store._col_name(doc_id)
+    try:
+        collection = vector_store.client.get_collection(
+            name=col_name,
+            embedding_function=vector_store.embed_fn,
+        )
+    except Exception:
+        raise HTTPException(404, "Collection not found in vector store")
+
+    data = collection.get(include=["documents", "metadatas", "embeddings"])
+
+    rows = []
+    for i, (doc_text, meta_item, emb) in enumerate(
+        zip(data["documents"], data["metadatas"], data["embeddings"])
+    ):
+        rows.append({
+            "id": meta_item.get("chunk_index", i),          # numeric row ID
+            "chunk_index": meta_item.get("chunk_index", i),  # same, padded in UI
+            "text": doc_text,
+            "embedding_preview": emb[:5],
+            "embedding_dims": len(emb),
+            "approx_page": meta_item.get("approx_page", ""),
+            "word_start": meta_item.get("word_start", ""),
+            "word_end": meta_item.get("word_end", ""),
+            "source": meta_item.get("source", ""),
+        })
+
+    return {
+        "doc_id": doc_id,
+        "doc_name": doc["name"],
+        "total_chunks": len(rows),
+        "chunks": rows,
+    }

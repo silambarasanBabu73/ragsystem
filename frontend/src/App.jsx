@@ -83,6 +83,87 @@ function TypingDots() {
   );
 }
 
+function VizPanel({ data, onClose }) {
+  const [search, setSearch] = useState("");
+  const [selected, setSelected] = useState(null);
+
+  const filtered = data.chunks.filter(c =>
+    c.text.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const sel = selected != null ? data.chunks.find(c => c.id === selected) : null;
+
+  return (
+    <div style={styles.sourceOverlay}>
+      <div style={{ ...styles.sourcePanel, maxWidth: 1200, width: "95%" }}>
+        <div style={styles.sourcePanelHeader}>
+          <span style={styles.sourcePanelTitle}>
+            🗄️ ChromaDB — {data.doc_name} &nbsp;
+            <span style={{ fontSize: 10, color: "#728072" }}>{data.total_chunks} chunks</span>
+          </span>
+          <button onClick={onClose} style={styles.closeBtn}>✕</button>
+        </div>
+
+        <div style={{ padding: "12px 24px", borderBottom: "1px solid #252a25" }}>
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="🔍 Search text content..."
+            style={{ width: "100%", background: "#181d18", border: "1px solid #252a25",
+              borderRadius: 8, color: "#e6ede6", padding: "8px 12px", fontSize: 12,
+              fontFamily: "inherit", outline: "none" }}
+          />
+        </div>
+
+        <div style={{ overflowY: "auto", flex: 1 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+            <thead>
+              <tr style={{ background: "#121512", position: "sticky", top: 0 }}>
+                {["ID", "Chunk Index", "Document Content", "Embedding Vector", "Approx Page", "Word Start", "Word End"].map(h => (
+                  <th key={h} style={{ padding: "10px 14px", textAlign: "left",
+                    color: "#728072", fontWeight: 600, borderBottom: "1px solid #252a25",
+                    letterSpacing: 1, fontSize: 9, textTransform: "uppercase" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((row, i) => (
+                <tr key={row.id}
+                  style={{ background: i % 2 === 0 ? "#0c0e0c" : "#101210",
+                    borderBottom: "1px solid #1a1f1a" }}>
+                  <td style={{ padding: "9px 14px", color: "#7bff8b", fontFamily: "monospace", fontSize: 10 }}>
+                    {row.id}
+                  </td>
+                  <td style={{ padding: "9px 14px", color: "#7bff8b", fontFamily: "monospace", fontSize: 10 }}>
+                    {String(row.chunk_index).padStart(3, "0")}
+                  </td>
+                  <td style={{ padding: "9px 14px", maxWidth: 320, color: "#e6ede6" }}>
+                    <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 300 }}>
+                      {row.text}
+                    </div>
+                  </td>
+                  <td style={{ padding: "9px 14px", color: "#3a7042", fontFamily: "monospace", fontSize: 10 }}>
+                    [{row.embedding_preview.map(v => v.toFixed(3)).join(", ")} ...]
+                  </td>
+                  <td style={{ padding: "9px 14px", color: "#728072", whiteSpace: "nowrap" }}>
+                    {row.approx_page}
+                  </td>
+                  <td style={{ padding: "9px 14px", color: "#728072" }}>
+                    {row.word_start}
+                  </td>
+                  <td style={{ padding: "9px 14px", color: "#728072" }}>
+                    {row.word_end}
+                  </td>
+              </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main App ─────────────────────────────────────────────────
 export default function App() {
   const [docs, setDocs] = useState([]);
@@ -98,6 +179,7 @@ export default function App() {
   const [sidebarTab, setSidebarTab] = useState("docs");
   const messagesEndRef = useRef(null);
   const fileRef = useRef(null);
+  const [showViz, setShowViz] = useState(null); // holds visualize data
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
@@ -245,6 +327,18 @@ export default function App() {
                 <div style={styles.docItemMeta}>{doc.chunk_count} chunks · {new Date(doc.uploaded_at).toLocaleDateString()}</div>
               </div>
               {doc.is_active && <span style={styles.activeBadge}>ACTIVE</span>}
+              {/* {doc.is_active && ( */}
+                <button
+                  style={{ ...styles.delBtn, color: "#7bff8b", fontSize: 11 }}
+                  title="Inspect vectors"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    const r = await fetch(`${API}/visualize/${doc.id}`);
+                    const d = await r.json();
+                    setShowViz(d);
+                  }}
+                >🔬</button>
+              {/* )} */}
               <button style={styles.delBtn} onClick={() => deleteDoc(doc.id)} title="Remove">✕</button>
             </div>
           ))}
@@ -327,6 +421,7 @@ export default function App() {
 
       {/* Source panel */}
       {showSources && <SourcePanel sources={showSources} onClose={() => setShowSources(null)} />}
+      {showViz && <VizPanel data={showViz} onClose={() => setShowViz(null)} />}
     </div>
   );
 }
